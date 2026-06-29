@@ -543,11 +543,12 @@ async function fetchKMA(stnId, year, apiKey) {
   }
 
   if (!res.ok) {
-    if (res.status === 403) {
+    if (res.status === 401 || res.status === 403) {
       throw new Error(
-        '403 오류 — API 키를 확인해 주세요.\n' +
+        `${res.status} 오류 — API 키를 확인해 주세요.\n` +
         '① data.go.kr 마이페이지 → 인증키 발급현황 → "일반 인증키(Decoding)" 복사\n' +
-        '② 활용신청 승인 여부 확인 (미승인 시 1~2일 소요)'
+        '② 기상청 데이터 활용신청 승인 여부 확인 (미승인 시 1~2일 소요)\n' +
+        '③ 저장된 키를 지웠다가 다시 붙여넣기 후 저장'
       );
     }
     throw new Error(`API HTTP 오류 (${res.status})`);
@@ -641,20 +642,35 @@ async function downloadElement(elCfg) {
     const apiKey = getApiKey();
     let allRows  = [];
     const source = apiKey ? '기상청 ASOS 관측값' : 'Open-Meteo ERA5 (근사값)';
-    const errors = [];
+    const errors   = [];
+    let   usedERA5 = false;
 
     for (let year = startYear; year <= endYear; year++) {
-      try {
-        if (apiKey) {
+      let yearRows = null;
+
+      // KMA 시도
+      if (apiKey) {
+        try {
           const items = await fetchKMA(stnId, year, apiKey);
-          allRows = allRows.concat(kmaItemsToRows(items, elCfg.kmaField));
-        } else {
-          allRows = allRows.concat(await fetchERA5(stn, year, elCfg));
+          yearRows = kmaItemsToRows(items, elCfg.kmaField);
+        } catch (e) {
+          errors.push({ year, msg: e.message });
+          console.warn(`${year}년 KMA 실패, ERA5로 대체:`, e.message);
         }
-      } catch (e) {
-        errors.push({ year, msg: e.message });
-        console.warn(`${year}년 데이터 건너뜀:`, e.message);
       }
+
+      // KMA 없거나 실패 시 ERA5로 대체
+      if (!yearRows) {
+        try {
+          yearRows  = await fetchERA5(stn, year, elCfg);
+          usedERA5  = true;
+        } catch (e) {
+          errors.push({ year, msg: e.message });
+          console.warn(`${year}년 ERA5도 실패:`, e.message);
+        }
+      }
+
+      if (yearRows) allRows = allRows.concat(yearRows);
     }
 
     if (!allRows.length) {
@@ -672,11 +688,13 @@ async function downloadElement(elCfg) {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, elCfg.name);
 
-    const yearRange = startYear === endYear ? `${startYear}년` : `${startYear}~${endYear}년`;
-    const filename  = `기상청_${stn.name}_${yearRange}_${elCfg.name}.xlsx`;
+    const yearRange  = startYear === endYear ? `${startYear}년` : `${startYear}~${endYear}년`;
+    const filename   = `기상청_${stn.name}_${yearRange}_${elCfg.name}.xlsx`;
     XLSX.writeFile(wb, filename);
 
-    toast(`✓ ${stn.name} ${yearRange} ${elCfg.name} — ${allRows.length}일치 저장 완료 (${source})`, 'success');
+    const actualSrc  = (apiKey && !usedERA5) ? source : usedERA5 && apiKey ? 'KMA 오류 → ERA5 대체' : 'Open-Meteo ERA5';
+    const warnSuffix = errors.length ? ` (${errors.length}개 연도 오류)` : '';
+    toast(`✓ ${stn.name} ${yearRange} ${elCfg.name} — ${allRows.length}일치 저장 완료 (${actualSrc})${warnSuffix}`, 'success');
 
   } catch (err) {
     console.error(err);
