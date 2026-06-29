@@ -21,8 +21,6 @@
       --g500:    #64748b;
       --g700:    #334155;
       --g800:    #1e293b;
-      --green:   #16a34a;
-      --amber:   #d97706;
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Noto Sans KR', -apple-system, sans-serif; background: var(--bg); color: var(--g800); min-height: 100vh; }
@@ -47,41 +45,6 @@
     }
     .header h1 { font-size: 1.9rem; font-weight: 700; letter-spacing: -.025em; margin-bottom: .45rem; }
     .header p  { font-size: .92rem; opacity: .75; font-weight: 300; }
-
-    /* ── API KEY SECTION ── */
-    .api-section {
-      background: #fff; border-bottom: 1px solid var(--g200);
-      box-shadow: 0 2px 10px rgba(0,0,0,.06);
-    }
-    .api-inner {
-      max-width: 1200px; margin: 0 auto; padding: .9rem 2rem;
-      display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
-    }
-    .api-label { font-size: .82rem; font-weight: 700; color: var(--g700); white-space: nowrap; }
-    .api-input {
-      flex: 1; min-width: 260px; max-width: 440px;
-      padding: .55rem .9rem; border: 1.5px solid var(--g200); border-radius: 8px;
-      font-size: .88rem; font-family: 'Courier New', monospace; color: var(--g800);
-      transition: border-color .15s, box-shadow .15s;
-    }
-    .api-input:focus { outline: none; border-color: var(--blue-lt); box-shadow: 0 0 0 3px rgba(59,130,246,.15); }
-    .btn-save {
-      padding: .55rem 1.1rem; background: var(--blue); color: #fff; border: none;
-      border-radius: 8px; font-size: .875rem; font-weight: 600; font-family: inherit;
-      cursor: pointer; white-space: nowrap; transition: background .15s;
-    }
-    .btn-save:hover { background: var(--navy-md); }
-    .api-status {
-      font-size: .8rem; font-weight: 600; padding: .3rem .75rem; border-radius: 100px;
-      white-space: nowrap;
-    }
-    .api-status.set   { background: #dcfce7; color: #15803d; }
-    .api-status.unset { background: #fef9c3; color: #a16207; }
-    .api-guide {
-      font-size: .78rem; color: var(--g500); white-space: nowrap;
-    }
-    .api-guide a { color: var(--blue-lt); text-decoration: none; }
-    .api-guide a:hover { text-decoration: underline; }
 
     /* ── CONTROLS ── */
     .controls-wrap {
@@ -125,9 +88,8 @@
       display: inline-flex; align-items: center; gap: .4rem;
       font-size: .78rem; font-weight: 700; padding: .3rem .8rem; border-radius: 100px;
       margin-bottom: 1.5rem;
+      background: #fef9c3; color: #a16207; border: 1px solid #fde047;
     }
-    .source-badge.kma  { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
-    .source-badge.era5 { background: #fef9c3; color: #a16207; border: 1px solid #fde047; }
 
     /* Selection pills */
     .sel-bar {
@@ -209,9 +171,9 @@
     @media (max-width: 700px) {
       .header h1 { font-size: 1.45rem; }
       .grid { grid-template-columns: 1fr; }
-      .controls, .api-inner { padding: 1rem; }
+      .controls { padding: 1rem; }
       .main { padding: 1rem; }
-      .ctrl-hint, .api-guide { display: none; }
+      .ctrl-hint { display: none; }
     }
   </style>
 </head>
@@ -225,24 +187,6 @@
     <p>지점별 · 연도별 기상 요소를 Excel 파일로 직접 다운로드하세요</p>
   </div>
 </header>
-
-<!-- ── API KEY ── -->
-<div class="api-section">
-  <div class="api-inner">
-    <span class="api-label">🔑 API 키</span>
-    <input type="password" id="apiKeyInput" class="api-input"
-           placeholder="공공데이터포털 서비스 키 (Decoding) 입력…"
-           autocomplete="off" />
-    <button class="btn-save" onclick="saveApiKey()">저장</button>
-    <span class="api-status unset" id="apiStatus">키 미입력 — ERA5 사용</span>
-    <span class="api-guide">
-      키 없이도 사용 가능 (ERA5 근사값) ·
-      <a href="https://data.kma.go.kr/api/selectApiDetailInfo.do?dataTypeNo=680" target="_blank" rel="noopener">
-        기상청 공식 데이터 키 발급 →
-      </a>
-    </span>
-  </div>
-</div>
 
 <!-- ── CONTROLS ── -->
 <div class="controls-wrap">
@@ -270,13 +214,12 @@
   <div class="info-banner">
     <span style="font-size:1.2rem;flex-shrink:0;margin-top:.05rem;">ℹ️</span>
     <div>
-      <strong style="color:var(--g800);">API 키 입력 시</strong> 기상청 공식 ASOS 관측값 (기상청 홈페이지와 동일한 데이터) 으로 Excel 다운로드됩니다.<br>
-      <strong style="color:var(--g800);">API 키 없이</strong> 사용하면 ERA5 기후 재분석 데이터 (근사값, 실제 관측값과 약간의 차이 있음) 가 저장됩니다.<br>
+      <strong style="color:var(--g800);">ERA5 기후 재분석 데이터</strong>를 사용합니다 (Open-Meteo 제공, 실제 관측값과 약간의 차이 있을 수 있음).<br>
       Excel 파일: <strong style="color:var(--g800);">1행(날짜) + 데이터 행</strong>만 포함, 불필요한 헤더 없음.
     </div>
   </div>
 
-  <div id="sourceBadge" class="source-badge era5">⚡ ERA5 근사값 모드 (API 키 없음)</div>
+  <div class="source-badge">⚡ ERA5 기후 재분석 데이터 (Open-Meteo)</div>
 
   <div class="sel-bar">
     <span class="sel-label">현재 선택</span>
@@ -307,8 +250,8 @@
 </main>
 
 <footer>
-  <p>공식 데이터: <a href="https://data.kma.go.kr" target="_blank" rel="noopener">기상자료개방포털 (data.kma.go.kr)</a>
-     &nbsp;·&nbsp; ERA5: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a></p>
+  <p>ERA5 데이터: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a>
+     &nbsp;·&nbsp; 기상청 공식 자료: <a href="https://data.kma.go.kr" target="_blank" rel="noopener">기상자료개방포털 (data.kma.go.kr)</a></p>
   <p>교육·실습 목적으로 제작된 비공식 도우미 페이지입니다.</p>
 </footer>
 
@@ -402,193 +345,58 @@ const REGION_ORDER = ['서울','인천','경기','강원','충북','충남','대
 
 /* ══════════════════════════════════════════════════════
    ELEMENT DEFINITIONS
-   kmaField  = KMA ASOS API response field name
-   omVar     = Open-Meteo variable (fallback)
-   omFmt     = transform function for Open-Meteo value
+   omVar  = Open-Meteo variable
+   omFmt  = transform function for Open-Meteo value
 ══════════════════════════════════════════════════════ */
 const ELEMENTS = {
   temp: [
-    { id:'avgTa',    name:'평균기온', unit:'℃',   icon:'🌡️', iconBg:'#fef2f2', stripe:'#ef4444',
+    { id:'avgTa',    name:'평균기온', unit:'℃',    icon:'🌡️', iconBg:'#fef2f2', stripe:'#ef4444',
       desc:'하루 중 기온의 평균값입니다.',
-      kmaField:'avgTa',    colName:'평균기온 (℃)',
-      omVar:'temperature_2m_mean',  omFmt: v => v!=null ? +v.toFixed(1) : '' },
-    { id:'minTa',    name:'최저기온', unit:'℃',   icon:'🔵', iconBg:'#eff6ff', stripe:'#3b82f6',
+      colName:'평균기온 (℃)',
+      omVar:'temperature_2m_mean',       omFmt: v => v!=null ? +v.toFixed(1) : '' },
+    { id:'minTa',    name:'최저기온', unit:'℃',    icon:'🔵', iconBg:'#eff6ff', stripe:'#3b82f6',
       desc:'하루 중 관측된 가장 낮은 기온값입니다.',
-      kmaField:'minTa',    colName:'최저기온 (℃)',
-      omVar:'temperature_2m_min',   omFmt: v => v!=null ? +v.toFixed(1) : '' },
-    { id:'maxTa',    name:'최고기온', unit:'℃',   icon:'🔴', iconBg:'#fff7ed', stripe:'#f97316',
+      colName:'최저기온 (℃)',
+      omVar:'temperature_2m_min',        omFmt: v => v!=null ? +v.toFixed(1) : '' },
+    { id:'maxTa',    name:'최고기온', unit:'℃',    icon:'🔴', iconBg:'#fff7ed', stripe:'#f97316',
       desc:'하루 중 관측된 가장 높은 기온값입니다.',
-      kmaField:'maxTa',    colName:'최고기온 (℃)',
-      omVar:'temperature_2m_max',   omFmt: v => v!=null ? +v.toFixed(1) : '' },
+      colName:'최고기온 (℃)',
+      omVar:'temperature_2m_max',        omFmt: v => v!=null ? +v.toFixed(1) : '' },
   ],
   precip: [
-    { id:'sumRn',    name:'강수량',   unit:'mm',  icon:'🌧️', iconBg:'#f0f9ff', stripe:'#0ea5e9',
+    { id:'sumRn',    name:'강수량',   unit:'mm',   icon:'🌧️', iconBg:'#f0f9ff', stripe:'#0ea5e9',
       desc:'비·눈 등 모든 강수를 합산한 일별 강수량입니다.',
-      kmaField:'sumRn',    colName:'강수량 (mm)',
-      omVar:'precipitation_sum',    omFmt: v => v!=null ? +v.toFixed(1) : '' },
-    { id:'sumSdNew', name:'신적설',   unit:'cm',  icon:'❄️', iconBg:'#f5f3ff', stripe:'#8b5cf6',
+      colName:'강수량 (mm)',
+      omVar:'precipitation_sum',         omFmt: v => v!=null ? +v.toFixed(1) : '' },
+    { id:'sumSdNew', name:'신적설',   unit:'cm',   icon:'❄️', iconBg:'#f5f3ff', stripe:'#8b5cf6',
       desc:'하루 동안 새로 쌓인 눈의 깊이입니다.',
-      kmaField:'sumSdNew', colName:'신적설 (cm)',
-      omVar:'snowfall_sum',         omFmt: v => v!=null ? +v.toFixed(1) : '' },
+      colName:'신적설 (cm)',
+      omVar:'snowfall_sum',              omFmt: v => v!=null ? +v.toFixed(1) : '' },
   ],
   wind: [
-    { id:'avgWs',    name:'평균풍속', unit:'m/s', icon:'💨', iconBg:'#f0fdf4', stripe:'#22c55e',
+    { id:'avgWs',    name:'평균풍속', unit:'m/s',  icon:'💨', iconBg:'#f0fdf4', stripe:'#22c55e',
       desc:'하루 동안의 10m 고도 풍속 평균값입니다.',
-      kmaField:'avgWs',    colName:'평균풍속 (m/s)',
-      omVar:'wind_speed_10m_mean',  omFmt: v => v!=null ? +v.toFixed(1) : '' },
-    { id:'avgRhm',   name:'상대습도', unit:'%',   icon:'💧', iconBg:'#ecfeff', stripe:'#06b6d4',
+      colName:'평균풍속 (m/s)',
+      omVar:'wind_speed_10m_mean',       omFmt: v => v!=null ? +v.toFixed(1) : '' },
+    { id:'avgRhm',   name:'상대습도', unit:'%',    icon:'💧', iconBg:'#ecfeff', stripe:'#06b6d4',
       desc:'하루 평균 공기 중 수분 포화도입니다.',
-      kmaField:'avgRhm',   colName:'상대습도 (%)',
+      colName:'상대습도 (%)',
       omVar:'relative_humidity_2m_mean', omFmt: v => v!=null ? Math.round(v) : '' },
   ],
   other: [
-    { id:'sumSshr',  name:'일조시간', unit:'hr',  icon:'☀️', iconBg:'#fffbeb', stripe:'#f59e0b',
+    { id:'sumSshr',  name:'일조시간', unit:'hr',   icon:'☀️', iconBg:'#fffbeb', stripe:'#f59e0b',
       desc:'태양이 직접 내리쬔 시간입니다.',
-      kmaField:'sumSshr',  colName:'일조시간 (hr)',
-      omVar:'sunshine_duration',    omFmt: v => v!=null ? +(v/3600).toFixed(1) : '' },
-    { id:'avgTca',   name:'운량',     unit:'1/10',icon:'☁️', iconBg:'#f8fafc', stripe:'#94a3b8',
+      colName:'일조시간 (hr)',
+      omVar:'sunshine_duration',         omFmt: v => v!=null ? +(v/3600).toFixed(1) : '' },
+    { id:'avgTca',   name:'운량',     unit:'1/10', icon:'☁️', iconBg:'#f8fafc', stripe:'#94a3b8',
       desc:'하늘을 가리는 구름의 양 (0=맑음, 10=흐림) 입니다.',
-      kmaField:'avgTca',   colName:'운량 (1/10)',
-      omVar:'cloud_cover_mean',     omFmt: v => v!=null ? +(v/10).toFixed(1) : '' },
+      colName:'운량 (1/10)',
+      omVar:'cloud_cover_mean',          omFmt: v => v!=null ? +(v/10).toFixed(1) : '' },
   ],
 };
 
 /* ══════════════════════════════════════════════════════
-   API KEY
-══════════════════════════════════════════════════════ */
-const LS_KEY = 'kma_api_key';
-
-function loadApiKey() {
-  const k = localStorage.getItem(LS_KEY) || '';
-  if (k) {
-    document.getElementById('apiKeyInput').value = k;
-    setApiStatus(true);
-  }
-}
-
-function saveApiKey() {
-  const val = document.getElementById('apiKeyInput').value.trim();
-  if (!val) {
-    localStorage.removeItem(LS_KEY);
-    setApiStatus(false);
-    toast('API 키가 삭제되었습니다.', 'info');
-  } else {
-    localStorage.setItem(LS_KEY, val);
-    setApiStatus(true);
-    toast('API 키가 저장되었습니다.', 'success');
-  }
-}
-
-function getApiKey() { return localStorage.getItem(LS_KEY) || ''; }
-
-function setApiStatus(hasKey) {
-  const st = document.getElementById('apiStatus');
-  const bd = document.getElementById('sourceBadge');
-  if (hasKey) {
-    st.textContent = '✓ 기상청 공식 데이터 사용 중';
-    st.className = 'api-status set';
-    bd.textContent = '✅ 기상청 공식 ASOS 관측값 모드';
-    bd.className = 'source-badge kma';
-  } else {
-    st.textContent = '키 미입력 — ERA5 사용';
-    st.className = 'api-status unset';
-    bd.textContent = '⚡ ERA5 근사값 모드 (API 키 없음)';
-    bd.className = 'source-badge era5';
-  }
-}
-
-/* ══════════════════════════════════════════════════════
-   DOWNLOAD — KMA OFFICIAL API
-   endpoint: apis.data.go.kr/1360000/AsosDalyInfoService
-══════════════════════════════════════════════════════ */
-const KMA_API = 'https://apis.data.go.kr/1360000/AsosDalyInfoService/getWthrDataList';
-const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
-
-async function fetchKMA(stnId, year, apiKey) {
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-  const isThisYear = year === today.getFullYear();
-  const startDt = `${year}0101`;
-  // KMA API는 전날 자료까지만 제공
-  const endDt = isThisYear
-    ? yesterday.toISOString().slice(0, 10).replace(/-/g, '')
-    : `${year}1231`;
-
-  // Encoding 키(% 포함)는 이미 인코딩돼 있으므로 그대로 사용.
-  // Decoding 키(평문)는 encodeURIComponent로 인코딩.
-  // URLSearchParams에 serviceKey를 넣으면 % → %25 이중인코딩 발생 → 403 오류.
-  const encodedKey = apiKey.includes('%') ? apiKey : encodeURIComponent(apiKey);
-
-  const rest = new URLSearchParams({
-    pageNo:    '1',
-    numOfRows: '366',
-    dataType:  'JSON',
-    dataCd:    'ASOS',
-    dateCd:    'DAY',
-    startDt,
-    endDt,
-    stnIds:    String(stnId),
-  });
-
-  const directUrl = `${KMA_API}?serviceKey=${encodedKey}&${rest}`;
-
-  // apis.data.go.kr는 CORS 허용 → 직접 호출 우선, 실패 시 프록시
-  let res;
-  try {
-    res = await fetch(directUrl, { signal: AbortSignal.timeout(15000) });
-  } catch {
-    const proxyUrl = `${CORS_PROXY}${encodeURIComponent(directUrl)}`;
-    res = await fetch(proxyUrl, { signal: AbortSignal.timeout(20000) });
-  }
-
-  if (!res.ok) {
-    if (res.status === 403) {
-      throw new Error(
-        '403 오류 — API 키를 확인해 주세요.\n' +
-        '① data.go.kr 마이페이지 → 인증키 발급현황 → "일반 인증키(Decoding)" 복사\n' +
-        '② 활용신청 승인 여부 확인 (미승인 시 1~2일 소요)'
-      );
-    }
-    throw new Error(`API HTTP 오류 (${res.status})`);
-  }
-
-  // 응답이 HTML이면 프록시가 오류 페이지를 반환한 것
-  const contentType = res.headers.get('content-type') || '';
-  const text = await res.text();
-  if (contentType.includes('text/html') || text.trimStart().startsWith('<')) {
-    throw new Error('API 응답이 HTML입니다. 키 또는 네트워크를 확인해 주세요.');
-  }
-
-  const json = JSON.parse(text);
-  const code = json?.response?.header?.resultCode;
-
-  if (code !== '00') {
-    const msg = json?.response?.header?.resultMsg || '알 수 없는 오류';
-    if (code === '30') throw new Error('API 키 미등록 오류 (코드 30) — "Decoding 키"를 사용해 주세요.');
-    if (code === '31') throw new Error('API 키 만료 (코드 31) — data.go.kr에서 키를 재발급 해주세요.');
-    throw new Error(`KMA API 오류: ${msg} (코드 ${code})`);
-  }
-
-  const items = json?.response?.body?.items?.item;
-  if (!items?.length) throw new Error('해당 기간의 데이터가 없습니다.');
-  return items;
-}
-
-function kmaItemsToRows(items, field) {
-  return items
-    .filter(it => it.tm && it[field] !== undefined && it[field] !== '')
-    .map(it => {
-      const raw = String(it[field]).trim();
-      const num = parseFloat(raw);
-      // Convert YYYYMMDD → YYYY-MM-DD (KMA returns YYYY-MM-DD already in some versions)
-      const tm  = it.tm.includes('-') ? it.tm : `${it.tm.slice(0,4)}-${it.tm.slice(4,6)}-${it.tm.slice(6,8)}`;
-      return [tm, isNaN(num) ? raw : num];
-    });
-}
-
-/* ══════════════════════════════════════════════════════
-   DOWNLOAD — OPEN-METEO ERA5 FALLBACK
+   DOWNLOAD — OPEN-METEO ERA5
 ══════════════════════════════════════════════════════ */
 async function fetchERA5(stn, year, el) {
   const today = new Date();
@@ -639,18 +447,11 @@ async function downloadElement(elCfg) {
   setBtnLoading(btn, true);
 
   try {
-    const apiKey = getApiKey();
     let allRows = [];
-    let source  = apiKey ? '기상청 ASOS 관측값' : 'Open-Meteo ERA5 (근사값)';
 
     for (let year = startYear; year <= endYear; year++) {
       try {
-        if (apiKey) {
-          const items = await fetchKMA(stnId, year, apiKey);
-          allRows = allRows.concat(kmaItemsToRows(items, elCfg.kmaField));
-        } else {
-          allRows = allRows.concat(await fetchERA5(stn, year, elCfg));
-        }
+        allRows = allRows.concat(await fetchERA5(stn, year, elCfg));
       } catch (e) {
         console.warn(`${year}년 데이터 건너뜀:`, e.message);
       }
@@ -658,7 +459,6 @@ async function downloadElement(elCfg) {
 
     if (!allRows.length) throw new Error('변환된 데이터가 없습니다.');
 
-    // ── Excel 생성 ────────────────────────────────────
     const ws = XLSX.utils.aoa_to_sheet([
       ['날짜', elCfg.colName],
       ...allRows,
@@ -669,10 +469,10 @@ async function downloadElement(elCfg) {
     XLSX.utils.book_append_sheet(wb, ws, elCfg.name);
 
     const yearRange = startYear === endYear ? `${startYear}년` : `${startYear}~${endYear}년`;
-    const filename  = `기상청_${stn.name}_${yearRange}_${elCfg.name}.xlsx`;
+    const filename  = `날씨_${stn.name}_${yearRange}_${elCfg.name}.xlsx`;
     XLSX.writeFile(wb, filename);
 
-    toast(`✓ ${stn.name} ${yearRange} ${elCfg.name} — ${allRows.length}일치 저장 완료 (${source})`, 'success');
+    toast(`✓ ${stn.name} ${yearRange} ${elCfg.name} — ${allRows.length}일치 저장 완료`, 'success');
 
   } catch (err) {
     console.error(err);
@@ -804,11 +604,6 @@ function onSelectChange() {
   populateYears();
   renderAll();
   onSelectChange();
-  loadApiKey();
-  // Allow Enter key to save API key
-  document.getElementById('apiKeyInput').addEventListener('keydown', e => {
-    if (e.key === 'Enter') saveApiKey();
-  });
 })();
 </script>
 </body>
