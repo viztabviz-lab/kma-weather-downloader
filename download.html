@@ -641,6 +641,7 @@ async function downloadElement(elCfg) {
     const apiKey = getApiKey();
     let allRows  = [];
     const source = apiKey ? '기상청 ASOS 관측값' : 'Open-Meteo ERA5 (근사값)';
+    const errors = [];
 
     for (let year = startYear; year <= endYear; year++) {
       try {
@@ -651,11 +652,15 @@ async function downloadElement(elCfg) {
           allRows = allRows.concat(await fetchERA5(stn, year, elCfg));
         }
       } catch (e) {
+        errors.push({ year, msg: e.message });
         console.warn(`${year}년 데이터 건너뜀:`, e.message);
       }
     }
 
-    if (!allRows.length) throw new Error('변환된 데이터가 없습니다.');
+    if (!allRows.length) {
+      const first = errors[0];
+      throw new Error(first ? `${first.year}년 — ${first.msg}` : '변환된 데이터가 없습니다.');
+    }
 
     // ── Excel 생성 ────────────────────────────────────
     const ws = XLSX.utils.aoa_to_sheet([
