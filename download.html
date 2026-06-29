@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>기상청 과거날씨 데이터 다운로더</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --navy:    #0d2241;
+      --navy-md: #1a3a6e;
+      --blue:    #1e5ead;
+      --blue-lt: #3b82f6;
+      --sky:     #0ea5e9;
+      --bg:      #f0f4f8;
+      --white:   #ffffff;
+      --g100:    #f1f5f9;
+      --g200:    #e2e8f0;
+      --g500:    #64748b;
+      --g700:    #334155;
+      --g800:    #1e293b;
+      --green:   #16a34a;
+      --amber:   #d97706;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Noto Sans KR', -apple-system, sans-serif; background: var(--bg); color: var(--g800); min-height: 100vh; }
+
+    /* ── HEADER ── */
+    .header {
+      background: linear-gradient(135deg, var(--navy) 0%, var(--navy-md) 100%);
+      color: #fff; padding: 2.75rem 2rem 2.25rem; text-align: center;
+      position: relative; overflow: hidden;
+    }
+    .header::before {
+      content: ''; position: absolute; inset: 0;
+      background: radial-gradient(ellipse at 20% 50%, rgba(30,94,173,.35) 0%, transparent 55%),
+                  radial-gradient(ellipse at 80% 30%, rgba(14,165,233,.2) 0%, transparent 50%);
+    }
+    .header-inner { position: relative; z-index: 1; }
+    .header-badge {
+      display: inline-flex; align-items: center; gap: .4rem;
+      background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.25);
+      padding: .35rem 1rem; border-radius: 100px;
+      font-size: .8rem; font-weight: 500; letter-spacing: .06em; margin-bottom: 1rem;
+    }
+    .header h1 { font-size: 1.9rem; font-weight: 700; letter-spacing: -.025em; margin-bottom: .45rem; }
+    .header p  { font-size: .92rem; opacity: .75; font-weight: 300; }
+
+    /* ── API KEY SECTION ── */
+    .api-section {
+      background: #fff; border-bottom: 1px solid var(--g200);
+      box-shadow: 0 2px 10px rgba(0,0,0,.06);
+    }
+    .api-inner {
+      max-width: 1200px; margin: 0 auto; padding: .9rem 2rem;
+      display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+    }
+    .api-label { font-size: .82rem; font-weight: 700; color: var(--g700); white-space: nowrap; }
+    .api-input {
+      flex: 1; min-width: 260px; max-width: 440px;
+      padding: .55rem .9rem; border: 1.5px solid var(--g200); border-radius: 8px;
+      font-size: .88rem; font-family: 'Courier New', monospace; color: var(--g800);
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .api-input:focus { outline: none; border-color: var(--blue-lt); box-shadow: 0 0 0 3px rgba(59,130,246,.15); }
+    .btn-save {
+      padding: .55rem 1.1rem; background: var(--blue); color: #fff; border: none;
+      border-radius: 8px; font-size: .875rem; font-weight: 600; font-family: inherit;
+      cursor: pointer; white-space: nowrap; transition: background .15s;
+    }
+    .btn-save:hover { background: var(--navy-md); }
+    .api-status {
+      font-size: .8rem; font-weight: 600; padding: .3rem .75rem; border-radius: 100px;
+      white-space: nowrap;
+    }
+    .api-status.set   { background: #dcfce7; color: #15803d; }
+    .api-status.unset { background: #fef9c3; color: #a16207; }
+    .api-guide {
+      font-size: .78rem; color: var(--g500); white-space: nowrap;
+    }
+    .api-guide a { color: var(--blue-lt); text-decoration: none; }
+    .api-guide a:hover { text-decoration: underline; }
+
+    /* ── CONTROLS ── */
+    .controls-wrap {
+      background: #fff; border-bottom: 1px solid var(--g200);
+      position: sticky; top: 0; z-index: 200;
+      box-shadow: 0 2px 8px rgba(0,0,0,.05);
+    }
+    .controls {
+      max-width: 1200px; margin: 0 auto; padding: .9rem 2rem;
+      display: flex; align-items: flex-end; gap: 1.25rem; flex-wrap: wrap;
+    }
+    .ctrl-group { display: flex; flex-direction: column; gap: .3rem; }
+    .ctrl-group label { font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--g500); }
+    .ctrl-group select {
+      padding: .6rem 2.4rem .6rem .85rem;
+      border: 1.5px solid var(--g200); border-radius: 9px;
+      font-size: .92rem; font-family: inherit; color: var(--g800);
+      background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E") no-repeat right .5rem center / 1.2rem;
+      appearance: none; cursor: pointer; transition: border-color .15s, box-shadow .15s;
+    }
+    .ctrl-group select:focus { outline: none; border-color: var(--blue-lt); box-shadow: 0 0 0 3px rgba(59,130,246,.15); }
+    #stnSelect       { min-width: 210px; }
+    #yearStartSelect,
+    #yearEndSelect   { min-width: 115px; }
+    .ctrl-range-sep  { font-size: .85rem; color: var(--g500); padding-bottom: .35rem; align-self: flex-end; }
+    .ctrl-hint { margin-left: auto; font-size: .83rem; color: var(--g500); }
+
+    /* ── MAIN ── */
+    .main { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+
+    /* Info banner */
+    .info-banner {
+      background: var(--g100); border: 1px solid #bfdbfe; border-left: 4px solid var(--blue-lt);
+      border-radius: 10px; padding: .9rem 1.2rem; margin-bottom: 1.5rem;
+      display: flex; gap: .75rem; align-items: flex-start;
+      font-size: .85rem; color: var(--g500); line-height: 1.65;
+    }
+
+    /* Source badge */
+    .source-badge {
+      display: inline-flex; align-items: center; gap: .4rem;
+      font-size: .78rem; font-weight: 700; padding: .3rem .8rem; border-radius: 100px;
+      margin-bottom: 1.5rem;
+    }
+    .source-badge.kma  { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
+    .source-badge.era5 { background: #fef9c3; color: #a16207; border: 1px solid #fde047; }
+
+    /* Selection pills */
+    .sel-bar {
+      display: flex; align-items: center; gap: .75rem; flex-wrap: wrap;
+      background: linear-gradient(135deg, #dbeafe, #eff6ff);
+      border: 1px solid #bfdbfe; border-radius: 10px;
+      padding: .85rem 1.25rem; margin-bottom: 2rem;
+    }
+    .sel-label { font-size: .78rem; color: var(--g500); font-weight: 500; }
+    .sel-pill {
+      display: inline-flex; align-items: center; gap: .35rem;
+      background: #fff; border: 1px solid #bfdbfe; border-radius: 100px;
+      padding: .3rem .9rem; font-size: .875rem; font-weight: 600; color: var(--blue);
+    }
+
+    /* Section */
+    .group { margin-bottom: 2.75rem; }
+    .group-header { display: flex; align-items: center; gap: .75rem; margin-bottom: 1.25rem; }
+    .group-title { font-size: 1rem; font-weight: 700; color: var(--g700); white-space: nowrap; }
+    .group-line  { flex: 1; height: 1px; background: var(--g200); }
+
+    /* Grid */
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.2rem; }
+
+    /* Card */
+    .card {
+      background: #fff; border: 1px solid var(--g200); border-radius: 16px; overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,.04); transition: box-shadow .2s, transform .2s;
+    }
+    .card:hover { box-shadow: 0 6px 18px rgba(0,0,0,.09); transform: translateY(-3px); }
+    .card-stripe { height: 5px; }
+    .card-body   { padding: 1.25rem 1.5rem 1.5rem; }
+    .card-head   { display: flex; align-items: flex-start; gap: 1rem; margin-bottom: .875rem; }
+    .card-icon   { width: 54px; height: 54px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.65rem; flex-shrink: 0; }
+    .card-meta   { flex: 1; }
+    .card-name   { font-size: 1.1rem; font-weight: 700; color: var(--g800); margin-bottom: .3rem; }
+    .card-unit   { display: inline-block; background: var(--g100); color: var(--g500); font-size: .72rem; font-weight: 700; padding: .2rem .6rem; border-radius: 100px; font-family: 'Courier New', monospace; }
+    .card-desc   { font-size: .84rem; color: var(--g500); line-height: 1.65; margin-bottom: 1.25rem; }
+    .card-sep    { height: 1px; background: var(--g100); margin-bottom: 1.25rem; }
+
+    /* Download button */
+    .btn-dl {
+      display: flex; align-items: center; justify-content: center; gap: .5rem;
+      width: 100%; padding: .75rem 1rem; color: #fff; border: none; border-radius: 10px;
+      font-size: .9rem; font-weight: 600; font-family: inherit; cursor: pointer;
+      transition: filter .15s, transform .1s;
+    }
+    .btn-dl:hover   { filter: brightness(1.1); }
+    .btn-dl:active  { transform: scale(.98); }
+    .btn-dl:disabled { opacity: .6; cursor: not-allowed; transform: none; filter: none; }
+    .btn-dl svg { width: 15px; height: 15px; flex-shrink: 0; }
+
+    /* Spinner */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 14px; height: 14px; border-radius: 50%;
+      border: 2px solid rgba(255,255,255,.35); border-top-color: #fff;
+      animation: spin .7s linear infinite; display: inline-block; flex-shrink: 0;
+    }
+
+    /* Toast */
+    #toast {
+      position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%) translateY(4rem);
+      background: var(--g800); color: #fff; padding: .75rem 1.5rem; border-radius: 100px;
+      font-size: .875rem; font-weight: 500; box-shadow: 0 4px 20px rgba(0,0,0,.25);
+      z-index: 9999; transition: transform .3s ease, opacity .3s ease; opacity: 0;
+      white-space: nowrap; max-width: 90vw; text-align: center;
+    }
+    #toast.show    { transform: translateX(-50%) translateY(0); opacity: 1; }
+    #toast.success { background: #16a34a; }
+    #toast.error   { background: #dc2626; }
+
+    /* Footer */
+    footer { background: var(--navy); color: rgba(255,255,255,.6); text-align: center; padding: 2rem 1rem; font-size: .83rem; margin-top: 2rem; }
+    footer a { color: var(--sky); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+    footer p + p { margin-top: .5rem; opacity: .65; font-size: .78rem; }
+
+    @media (max-width: 700px) {
+      .header h1 { font-size: 1.45rem; }
+      .grid { grid-template-columns: 1fr; }
+      .controls, .api-inner { padding: 1rem; }
+      .main { padding: 1rem; }
+      .ctrl-hint, .api-guide { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<header class="header">
+  <div class="header-inner">
+    <div class="header-badge">☁️ &nbsp;기상청 관측 데이터 다운로더</div>
+    <h1>과거날씨 데이터 다운로더</h1>
+    <p>지점별 · 연도별 기상 요소를 Excel 파일로 직접 다운로드하세요</p>
+  </div>
+</header>
+
+<!-- ── API KEY ── -->
+<div class="api-section">
+  <div class="api-inner">
+    <span class="api-label">🔑 API 키</span>
+    <input type="password" id="apiKeyInput" class="api-input"
+           placeholder="공공데이터포털 서비스 키 (Decoding) 입력…"
+           autocomplete="off" />
+    <button class="btn-save" onclick="saveApiKey()">저장</button>
+    <span class="api-status unset" id="apiStatus">키 미입력 — ERA5 사용</span>
+    <span class="api-guide">
+      키 없이도 사용 가능 (ERA5 근사값) ·
+      <a href="https://data.kma.go.kr/api/selectApiDetailInfo.do?dataTypeNo=680" target="_blank" rel="noopener">
+        기상청 공식 데이터 키 발급 →
+      </a>
+    </span>
+  </div>
+</div>
+
+<!-- ── CONTROLS ── -->
+<div class="controls-wrap">
+  <div class="controls">
+    <div class="ctrl-group">
+      <label>관측 지점</label>
+      <select id="stnSelect" onchange="onSelectChange()"></select>
+    </div>
+    <div class="ctrl-group">
+      <label>시작 연도</label>
+      <select id="yearStartSelect" onchange="onSelectChange()"></select>
+    </div>
+    <span class="ctrl-range-sep">~</span>
+    <div class="ctrl-group">
+      <label>끝 연도</label>
+      <select id="yearEndSelect" onchange="onSelectChange()"></select>
+    </div>
+    <div class="ctrl-hint">📅 1960 ~ 2026년 · 전국 75개 지점</div>
+  </div>
+</div>
+
+<!-- ── MAIN ── -->
+<main class="main">
+
+  <div class="info-banner">
+    <span style="font-size:1.2rem;flex-shrink:0;margin-top:.05rem;">ℹ️</span>
+    <div>
+      <strong style="color:var(--g800);">API 키 입력 시</strong> 기상청 공식 ASOS 관측값 (기상청 홈페이지와 동일한 데이터) 으로 Excel 다운로드됩니다.<br>
+      <strong style="color:var(--g800);">API 키 없이</strong> 사용하면 ERA5 기후 재분석 데이터 (근사값, 실제 관측값과 약간의 차이 있음) 가 저장됩니다.<br>
+      Excel 파일: <strong style="color:var(--g800);">1행(날짜) + 데이터 행</strong>만 포함, 불필요한 헤더 없음.
+    </div>
+  </div>
+
+  <div id="sourceBadge" class="source-badge era5">⚡ ERA5 근사값 모드 (API 키 없음)</div>
+
+  <div class="sel-bar">
+    <span class="sel-label">현재 선택</span>
+    <span class="sel-pill" id="stnPill">📍 서울 (108)</span>
+    <span class="sel-pill" id="yearPill">📅 2026년</span>
+  </div>
+
+  <section class="group">
+    <div class="group-header"><span class="group-title">🌡️ 기온</span><span class="group-line"></span></div>
+    <div class="grid" id="grid-temp"></div>
+  </section>
+
+  <section class="group">
+    <div class="group-header"><span class="group-title">🌧️ 강수</span><span class="group-line"></span></div>
+    <div class="grid" id="grid-precip"></div>
+  </section>
+
+  <section class="group">
+    <div class="group-header"><span class="group-title">💨 바람 · 습도</span><span class="group-line"></span></div>
+    <div class="grid" id="grid-wind"></div>
+  </section>
+
+  <section class="group">
+    <div class="group-header"><span class="group-title">☀️ 일조 · 운량</span><span class="group-line"></span></div>
+    <div class="grid" id="grid-other"></div>
+  </section>
+
+</main>
+
+<footer>
+  <p>공식 데이터: <a href="https://data.kma.go.kr" target="_blank" rel="noopener">기상자료개방포털 (data.kma.go.kr)</a>
+     &nbsp;·&nbsp; ERA5: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a></p>
+  <p>교육·실습 목적으로 제작된 비공식 도우미 페이지입니다.</p>
+</footer>
+
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+/* ══════════════════════════════════════════════════════
+   STATION DATA
+══════════════════════════════════════════════════════ */
+const STATIONS = [
+  { id:108, name:'서울',   r:'서울', lat:37.5714, lon:126.9658 },
+  { id:112, name:'인천',   r:'인천', lat:37.4776, lon:126.6249 },
+  { id:201, name:'강화',   r:'인천', lat:37.7147, lon:126.4377 },
+  { id:119, name:'수원',   r:'경기', lat:37.2600, lon:126.9874 },
+  { id: 98, name:'동두천', r:'경기', lat:37.9032, lon:127.0598 },
+  { id: 99, name:'파주',   r:'경기', lat:37.7568, lon:126.7467 },
+  { id:202, name:'양평',   r:'경기', lat:37.4891, lon:127.4945 },
+  { id:203, name:'이천',   r:'경기', lat:37.2623, lon:127.4847 },
+  { id: 90, name:'속초',   r:'강원', lat:38.2507, lon:128.5648 },
+  { id: 95, name:'철원',   r:'강원', lat:38.1474, lon:127.3044 },
+  { id:100, name:'대관령', r:'강원', lat:37.6771, lon:128.7188 },
+  { id:101, name:'춘천',   r:'강원', lat:37.9026, lon:127.7355 },
+  { id:105, name:'강릉',   r:'강원', lat:37.7512, lon:128.8908 },
+  { id:106, name:'동해',   r:'강원', lat:37.5069, lon:129.1147 },
+  { id:114, name:'원주',   r:'강원', lat:37.3374, lon:127.9459 },
+  { id:121, name:'영월',   r:'강원', lat:37.1807, lon:128.4614 },
+  { id:211, name:'인제',   r:'강원', lat:38.0604, lon:128.1700 },
+  { id:212, name:'홍천',   r:'강원', lat:37.6836, lon:127.8817 },
+  { id:216, name:'태백',   r:'강원', lat:37.1602, lon:128.9856 },
+  { id:217, name:'정선',   r:'강원', lat:37.3800, lon:128.6600 },
+  { id:127, name:'충주',   r:'충북', lat:36.9740, lon:127.9528 },
+  { id:131, name:'청주',   r:'충북', lat:36.6376, lon:127.4413 },
+  { id:135, name:'추풍령', r:'충북', lat:36.2200, lon:127.9932 },
+  { id:221, name:'제천',   r:'충북', lat:37.1598, lon:128.1919 },
+  { id:226, name:'보은',   r:'충북', lat:36.4893, lon:127.7278 },
+  { id:129, name:'서산',   r:'충남', lat:36.7766, lon:126.4956 },
+  { id:133, name:'대전',   r:'대전', lat:36.3706, lon:127.3743 },
+  { id:177, name:'홍성',   r:'충남', lat:36.6011, lon:126.6603 },
+  { id:232, name:'천안',   r:'충남', lat:36.7750, lon:127.1221 },
+  { id:235, name:'부여',   r:'충남', lat:36.2739, lon:126.9201 },
+  { id:236, name:'보령',   r:'충남', lat:36.3282, lon:126.5592 },
+  { id:238, name:'금산',   r:'충남', lat:36.1067, lon:127.4802 },
+  { id:140, name:'군산',   r:'전북', lat:35.9785, lon:126.7362 },
+  { id:146, name:'전주',   r:'전북', lat:35.8202, lon:127.1089 },
+  { id:172, name:'고창',   r:'전북', lat:35.4282, lon:126.7024 },
+  { id:243, name:'부안',   r:'전북', lat:35.7288, lon:126.7163 },
+  { id:244, name:'임실',   r:'전북', lat:35.6119, lon:127.2889 },
+  { id:245, name:'정읍',   r:'전북', lat:35.5631, lon:126.8601 },
+  { id:247, name:'남원',   r:'전북', lat:35.4139, lon:127.3267 },
+  { id:248, name:'장수',   r:'전북', lat:35.6540, lon:127.5214 },
+  { id:156, name:'광주',   r:'광주', lat:35.1727, lon:126.8913 },
+  { id:165, name:'목포',   r:'전남', lat:34.8171, lon:126.3815 },
+  { id:168, name:'여수',   r:'전남', lat:34.7387, lon:127.7396 },
+  { id:169, name:'흑산도', r:'전남', lat:34.6836, lon:125.4502 },
+  { id:170, name:'완도',   r:'전남', lat:34.3985, lon:126.7010 },
+  { id:174, name:'순천',   r:'전남', lat:34.9406, lon:127.4873 },
+  { id:262, name:'고흥',   r:'전남', lat:34.6092, lon:127.2804 },
+  { id:143, name:'대구',   r:'대구', lat:35.8851, lon:128.6170 },
+  { id:130, name:'울진',   r:'경북', lat:36.9919, lon:129.4132 },
+  { id:136, name:'안동',   r:'경북', lat:36.5730, lon:128.7069 },
+  { id:138, name:'포항',   r:'경북', lat:36.0320, lon:129.3800 },
+  { id:115, name:'울릉도', r:'경북', lat:37.4773, lon:130.8983 },
+  { id:271, name:'봉화',   r:'경북', lat:36.9403, lon:128.9175 },
+  { id:272, name:'영주',   r:'경북', lat:36.8717, lon:128.5175 },
+  { id:273, name:'문경',   r:'경북', lat:36.6264, lon:128.1488 },
+  { id:277, name:'영덕',   r:'경북', lat:36.5335, lon:129.4079 },
+  { id:278, name:'의성',   r:'경북', lat:36.3559, lon:128.6873 },
+  { id:279, name:'구미',   r:'경북', lat:36.1302, lon:128.3192 },
+  { id:281, name:'영천',   r:'경북', lat:35.9724, lon:128.9513 },
+  { id:283, name:'경주',   r:'경북', lat:35.8277, lon:129.2118 },
+  { id:152, name:'울산',   r:'울산', lat:35.5581, lon:129.3199 },
+  { id:159, name:'부산',   r:'부산', lat:35.1042, lon:129.0320 },
+  { id:155, name:'창원',   r:'경남', lat:35.1677, lon:128.5668 },
+  { id:162, name:'통영',   r:'경남', lat:34.8461, lon:128.4339 },
+  { id:192, name:'진주',   r:'경남', lat:35.1598, lon:128.0403 },
+  { id:256, name:'함양',   r:'경남', lat:35.5208, lon:127.7244 },
+  { id:257, name:'거창',   r:'경남', lat:35.6878, lon:127.9099 },
+  { id:258, name:'합천',   r:'경남', lat:35.5642, lon:128.1658 },
+  { id:260, name:'밀양',   r:'경남', lat:35.4941, lon:128.7465 },
+  { id:261, name:'산청',   r:'경남', lat:35.4127, lon:127.8740 },
+  { id:284, name:'거제',   r:'경남', lat:34.8803, lon:128.6213 },
+  { id:285, name:'남해',   r:'경남', lat:34.8376, lon:127.8924 },
+  { id:184, name:'제주',   r:'제주', lat:33.5141, lon:126.5296 },
+  { id:185, name:'고산',   r:'제주', lat:33.2930, lon:126.1630 },
+  { id:188, name:'성산',   r:'제주', lat:33.3862, lon:126.8804 },
+  { id:189, name:'서귀포', r:'제주', lat:33.2460, lon:126.5655 },
+];
+
+const REGION_ORDER = ['서울','인천','경기','강원','충북','충남','대전','전북','광주','전남','대구','경북','울산','부산','경남','제주'];
+
+/* ══════════════════════════════════════════════════════
+   ELEMENT DEFINITIONS
+   kmaField  = KMA ASOS API response field name
+   omVar     = Open-Meteo variable (fallback)
+   omFmt     = transform function for Open-Meteo value
+══════════════════════════════════════════════════════ */
+const ELEMENTS = {
+  temp: [
+    { id:'avgTa',    name:'평균기온', unit:'℃',   icon:'🌡️', iconBg:'#fef2f2', stripe:'#ef4444',
+      desc:'하루 중 기온의 평균값입니다.',
+      kmaField:'avgTa',    colName:'평균기온 (℃)',
+      omVar:'temperature_2m_mean',  omFmt: v => v!=null ? +v.toFixed(1) : '' },
+    { id:'minTa',    name:'최저기온', unit:'℃',   icon:'🔵', iconBg:'#eff6ff', stripe:'#3b82f6',
+      desc:'하루 중 관측된 가장 낮은 기온값입니다.',
+      kmaField:'minTa',    colName:'최저기온 (℃)',
+      omVar:'temperature_2m_min',   omFmt: v => v!=null ? +v.toFixed(1) : '' },
+    { id:'maxTa',    name:'최고기온', unit:'℃',   icon:'🔴', iconBg:'#fff7ed', stripe:'#f97316',
+      desc:'하루 중 관측된 가장 높은 기온값입니다.',
+      kmaField:'maxTa',    colName:'최고기온 (℃)',
+      omVar:'temperature_2m_max',   omFmt: v => v!=null ? +v.toFixed(1) : '' },
+  ],
+  precip: [
+    { id:'sumRn',    name:'강수량',   unit:'mm',  icon:'🌧️', iconBg:'#f0f9ff', stripe:'#0ea5e9',
+      desc:'비·눈 등 모든 강수를 합산한 일별 강수량입니다.',
+      kmaField:'sumRn',    colName:'강수량 (mm)',
+      omVar:'precipitation_sum',    omFmt: v => v!=null ? +v.toFixed(1) : '' },
+    { id:'sumSdNew', name:'신적설',   unit:'cm',  icon:'❄️', iconBg:'#f5f3ff', stripe:'#8b5cf6',
+      desc:'하루 동안 새로 쌓인 눈의 깊이입니다.',
+      kmaField:'sumSdNew', colName:'신적설 (cm)',
+      omVar:'snowfall_sum',         omFmt: v => v!=null ? +v.toFixed(1) : '' },
+  ],
+  wind: [
+    { id:'avgWs',    name:'평균풍속', unit:'m/s', icon:'💨', iconBg:'#f0fdf4', stripe:'#22c55e',
+      desc:'하루 동안의 10m 고도 풍속 평균값입니다.',
+      kmaField:'avgWs',    colName:'평균풍속 (m/s)',
+      omVar:'wind_speed_10m_mean',  omFmt: v => v!=null ? +v.toFixed(1) : '' },
+    { id:'avgRhm',   name:'상대습도', unit:'%',   icon:'💧', iconBg:'#ecfeff', stripe:'#06b6d4',
+      desc:'하루 평균 공기 중 수분 포화도입니다.',
+      kmaField:'avgRhm',   colName:'상대습도 (%)',
+      omVar:'relative_humidity_2m_mean', omFmt: v => v!=null ? Math.round(v) : '' },
+  ],
+  other: [
+    { id:'sumSshr',  name:'일조시간', unit:'hr',  icon:'☀️', iconBg:'#fffbeb', stripe:'#f59e0b',
+      desc:'태양이 직접 내리쬔 시간입니다.',
+      kmaField:'sumSshr',  colName:'일조시간 (hr)',
+      omVar:'sunshine_duration',    omFmt: v => v!=null ? +(v/3600).toFixed(1) : '' },
+    { id:'avgTca',   name:'운량',     unit:'1/10',icon:'☁️', iconBg:'#f8fafc', stripe:'#94a3b8',
+      desc:'하늘을 가리는 구름의 양 (0=맑음, 10=흐림) 입니다.',
+      kmaField:'avgTca',   colName:'운량 (1/10)',
+      omVar:'cloud_cover_mean',     omFmt: v => v!=null ? +(v/10).toFixed(1) : '' },
+  ],
+};
+
+/* ══════════════════════════════════════════════════════
+   API KEY
+══════════════════════════════════════════════════════ */
+const LS_KEY = 'kma_api_key';
+
+function loadApiKey() {
+  const k = localStorage.getItem(LS_KEY) || '';
+  if (k) {
+    document.getElementById('apiKeyInput').value = k;
+    setApiStatus(true);
+  }
+}
+
+function saveApiKey() {
+  const val = document.getElementById('apiKeyInput').value.trim();
+  if (!val) {
+    localStorage.removeItem(LS_KEY);
+    setApiStatus(false);
+    toast('API 키가 삭제되었습니다.', 'info');
+  } else {
+    localStorage.setItem(LS_KEY, val);
+    setApiStatus(true);
+    toast('API 키가 저장되었습니다.', 'success');
+  }
+}
+
+function getApiKey() { return localStorage.getItem(LS_KEY) || ''; }
+
+function setApiStatus(hasKey) {
+  const st = document.getElementById('apiStatus');
+  const bd = document.getElementById('sourceBadge');
+  if (hasKey) {
+    st.textContent = '✓ 기상청 공식 데이터 사용 중';
+    st.className = 'api-status set';
+    bd.textContent = '✅ 기상청 공식 ASOS 관측값 모드';
+    bd.className = 'source-badge kma';
+  } else {
+    st.textContent = '키 미입력 — ERA5 사용';
+    st.className = 'api-status unset';
+    bd.textContent = '⚡ ERA5 근사값 모드 (API 키 없음)';
+    bd.className = 'source-badge era5';
+  }
+}
+
+/* ══════════════════════════════════════════════════════
+   DOWNLOAD — KMA OFFICIAL API
+   endpoint: apis.data.go.kr/1360000/AsosDalyInfoService
+══════════════════════════════════════════════════════ */
+const KMA_API = 'https://apis.data.go.kr/1360000/AsosDalyInfoService/getWthrDataList';
+const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
+
+async function fetchKMA(stnId, year, apiKey) {
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  const isThisYear = year === today.getFullYear();
+  const startDt = `${year}0101`;
+  // KMA API는 전날 자료까지만 제공
+  const endDt = isThisYear
+    ? yesterday.toISOString().slice(0, 10).replace(/-/g, '')
+    : `${year}1231`;
+
+  // Encoding 키(% 포함)는 이미 인코딩돼 있으므로 그대로 사용.
+  // Decoding 키(평문)는 encodeURIComponent로 인코딩.
+  // URLSearchParams에 serviceKey를 넣으면 % → %25 이중인코딩 발생 → 403 오류.
+  const encodedKey = apiKey.includes('%') ? apiKey : encodeURIComponent(apiKey);
+
+  const rest = new URLSearchParams({
+    pageNo:    '1',
+    numOfRows: '366',
+    dataType:  'JSON',
+    dataCd:    'ASOS',
+    dateCd:    'DAY',
+    startDt,
+    endDt,
+    stnIds:    String(stnId),
+  });
+
+  const directUrl = `${KMA_API}?serviceKey=${encodedKey}&${rest}`;
+
+  // apis.data.go.kr는 CORS 허용 → 직접 호출 우선, 실패 시 프록시
+  let res;
+  try {
+    res = await fetch(directUrl, { signal: AbortSignal.timeout(15000) });
+  } catch {
+    const proxyUrl = `${CORS_PROXY}${encodeURIComponent(directUrl)}`;
+    res = await fetch(proxyUrl, { signal: AbortSignal.timeout(20000) });
+  }
+
+  if (!res.ok) {
+    if (res.status === 403) {
+      throw new Error(
+        '403 오류 — API 키를 확인해 주세요.\n' +
+        '① data.go.kr 마이페이지 → 인증키 발급현황 → "일반 인증키(Decoding)" 복사\n' +
+        '② 활용신청 승인 여부 확인 (미승인 시 1~2일 소요)'
+      );
+    }
+    throw new Error(`API HTTP 오류 (${res.status})`);
+  }
+
+  // 응답이 HTML이면 프록시가 오류 페이지를 반환한 것
+  const contentType = res.headers.get('content-type') || '';
+  const text = await res.text();
+  if (contentType.includes('text/html') || text.trimStart().startsWith('<')) {
+    throw new Error('API 응답이 HTML입니다. 키 또는 네트워크를 확인해 주세요.');
+  }
+
+  const json = JSON.parse(text);
+  const code = json?.response?.header?.resultCode;
+
+  if (code !== '00') {
+    const msg = json?.response?.header?.resultMsg || '알 수 없는 오류';
+    if (code === '30') throw new Error('API 키 미등록 오류 (코드 30) — "Decoding 키"를 사용해 주세요.');
+    if (code === '31') throw new Error('API 키 만료 (코드 31) — data.go.kr에서 키를 재발급 해주세요.');
+    throw new Error(`KMA API 오류: ${msg} (코드 ${code})`);
+  }
+
+  const items = json?.response?.body?.items?.item;
+  if (!items?.length) throw new Error('해당 기간의 데이터가 없습니다.');
+  return items;
+}
+
+function kmaItemsToRows(items, field) {
+  return items
+    .filter(it => it.tm && it[field] !== undefined && it[field] !== '')
+    .map(it => {
+      const raw = String(it[field]).trim();
+      const num = parseFloat(raw);
+      // Convert YYYYMMDD → YYYY-MM-DD (KMA returns YYYY-MM-DD already in some versions)
+      const tm  = it.tm.includes('-') ? it.tm : `${it.tm.slice(0,4)}-${it.tm.slice(4,6)}-${it.tm.slice(6,8)}`;
+      return [tm, isNaN(num) ? raw : num];
+    });
+}
+
+/* ══════════════════════════════════════════════════════
+   DOWNLOAD — OPEN-METEO ERA5 FALLBACK
+══════════════════════════════════════════════════════ */
+async function fetchERA5(stn, year, el) {
+  const today = new Date();
+  const isThisYear = year === today.getFullYear();
+  const startDate = `${year}-01-01`;
+  const endDate   = isThisYear ? today.toISOString().slice(0, 10) : `${year}-12-31`;
+
+  const params = new URLSearchParams({
+    latitude:        stn.lat,
+    longitude:       stn.lon,
+    start_date:      startDate,
+    end_date:        endDate,
+    daily:           el.omVar,
+    timezone:        'Asia/Seoul',
+    wind_speed_unit: 'ms',
+  });
+
+  const res = await fetch(`https://archive-api.open-meteo.com/v1/archive?${params}`,
+    { signal: AbortSignal.timeout(20000) });
+
+  if (!res.ok) throw new Error(`Open-Meteo API 오류 (${res.status})`);
+  const json = await res.json();
+  if (json.error) throw new Error(json.reason || 'Open-Meteo 오류');
+  if (!json.daily?.time) throw new Error('ERA5 데이터 없음');
+  if (!json.daily[el.omVar]) throw new Error(`변수 '${el.omVar}' 미지원`);
+
+  const dates  = json.daily.time;
+  const values = json.daily[el.omVar];
+  return dates.map((d, i) => [d, el.omFmt(values[i])]);
+}
+
+/* ══════════════════════════════════════════════════════
+   MAIN DOWNLOAD HANDLER
+══════════════════════════════════════════════════════ */
+async function downloadElement(elCfg) {
+  const stnId     = parseInt(document.getElementById('stnSelect').value);
+  const startYear = parseInt(document.getElementById('yearStartSelect').value);
+  const endYear   = parseInt(document.getElementById('yearEndSelect').value);
+  const stn       = STATIONS.find(s => s.id === stnId);
+  if (!stn) { toast('지점 정보를 찾을 수 없습니다.', 'error'); return; }
+
+  if (startYear > endYear) {
+    toast('시작 연도가 끝 연도보다 클 수 없습니다.', 'error');
+    return;
+  }
+
+  const btn = document.getElementById(`btn-${elCfg.id}`);
+  setBtnLoading(btn, true);
+
+  try {
+    const apiKey = getApiKey();
+    let allRows = [];
+    let source  = apiKey ? '기상청 ASOS 관측값' : 'Open-Meteo ERA5 (근사값)';
+
+    for (let year = startYear; year <= endYear; year++) {
+      try {
+        if (apiKey) {
+          const items = await fetchKMA(stnId, year, apiKey);
+          allRows = allRows.concat(kmaItemsToRows(items, elCfg.kmaField));
+        } else {
+          allRows = allRows.concat(await fetchERA5(stn, year, elCfg));
+        }
+      } catch (e) {
+        console.warn(`${year}년 데이터 건너뜀:`, e.message);
+      }
+    }
+
+    if (!allRows.length) throw new Error('변환된 데이터가 없습니다.');
+
+    // ── Excel 생성 ────────────────────────────────────
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['날짜', elCfg.colName],
+      ...allRows,
+    ]);
+    ws['!cols'] = [{ wch: 12 }, { wch: 16 }];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, elCfg.name);
+
+    const yearRange = startYear === endYear ? `${startYear}년` : `${startYear}~${endYear}년`;
+    const filename  = `기상청_${stn.name}_${yearRange}_${elCfg.name}.xlsx`;
+    XLSX.writeFile(wb, filename);
+
+    toast(`✓ ${stn.name} ${yearRange} ${elCfg.name} — ${allRows.length}일치 저장 완료 (${source})`, 'success');
+
+  } catch (err) {
+    console.error(err);
+    toast(`오류: ${err.message}`, 'error');
+  } finally {
+    setBtnLoading(btn, false);
+  }
+}
+
+/* ══════════════════════════════════════════════════════
+   UI HELPERS
+══════════════════════════════════════════════════════ */
+function setBtnLoading(btn, loading) {
+  if (!btn) return;
+  btn.disabled = loading;
+  btn.innerHTML = loading
+    ? `<span class="spinner"></span>&nbsp; 불러오는 중…`
+    : btnInner();
+}
+
+function btnInner() {
+  return `<svg viewBox="0 0 16 16" fill="none">
+    <path d="M8 1v9M8 10l-3-3M8 10l3-3M2 14h12"
+      stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg> Excel 다운로드`;
+}
+
+function cardHtml(el) {
+  return `
+    <div class="card">
+      <div class="card-stripe" style="background:${el.stripe};"></div>
+      <div class="card-body">
+        <div class="card-head">
+          <div class="card-icon" style="background:${el.iconBg};">${el.icon}</div>
+          <div class="card-meta">
+            <div class="card-name">${el.name}</div>
+            <span class="card-unit">${el.unit}</span>
+          </div>
+        </div>
+        <p class="card-desc">${el.desc}</p>
+        <div class="card-sep"></div>
+        <button id="btn-${el.id}"
+                class="btn-dl"
+                style="background:${el.stripe};"
+                onclick="downloadElement(getElById('${el.id}'))">
+          ${btnInner()}
+        </button>
+      </div>
+    </div>`;
+}
+
+function getElById(id) {
+  for (const list of Object.values(ELEMENTS))
+    for (const el of list)
+      if (el.id === id) return el;
+  return null;
+}
+
+function renderAll() {
+  const map = { temp:'grid-temp', precip:'grid-precip', wind:'grid-wind', other:'grid-other' };
+  for (const [key, list] of Object.entries(ELEMENTS))
+    document.getElementById(map[key]).innerHTML = list.map(cardHtml).join('');
+}
+
+let _toastTimer;
+function toast(msg, type = 'info') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `show ${type}`;
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => { el.className = ''; }, 4000);
+}
+
+/* ══════════════════════════════════════════════════════
+   SELECTS
+══════════════════════════════════════════════════════ */
+function populateStations() {
+  const sel = document.getElementById('stnSelect');
+  const byR = {};
+  STATIONS.forEach(s => { (byR[s.r] ??= []).push(s); });
+  REGION_ORDER.forEach(r => {
+    if (!byR[r]) return;
+    const og = document.createElement('optgroup');
+    og.label = r;
+    byR[r].forEach(s => {
+      const o = document.createElement('option');
+      o.value = s.id; o.textContent = `${s.name} (${s.id})`;
+      if (s.id === 108) o.selected = true;
+      og.appendChild(o);
+    });
+    sel.appendChild(og);
+  });
+}
+
+function populateYears() {
+  const startSel = document.getElementById('yearStartSelect');
+  const endSel   = document.getElementById('yearEndSelect');
+  const cur = Math.min(new Date().getFullYear(), 2026);
+  const defaultStart = Math.max(cur - 5, 1960);
+  for (let y = cur; y >= 1960; y--) {
+    const o1 = document.createElement('option');
+    o1.value = y; o1.textContent = `${y}년`;
+    if (y === defaultStart) o1.selected = true;
+    startSel.appendChild(o1);
+
+    const o2 = document.createElement('option');
+    o2.value = y; o2.textContent = `${y}년`;
+    if (y === cur) o2.selected = true;
+    endSel.appendChild(o2);
+  }
+}
+
+function onSelectChange() {
+  const s  = document.getElementById('stnSelect');
+  const ys = document.getElementById('yearStartSelect');
+  const ye = document.getElementById('yearEndSelect');
+  document.getElementById('stnPill').textContent = `📍 ${s.options[s.selectedIndex].text}`;
+  const yearText = ys.value === ye.value
+    ? `📅 ${ys.value}년`
+    : `📅 ${ys.value}년 ~ ${ye.value}년`;
+  document.getElementById('yearPill').textContent = yearText;
+}
+
+/* ══════════════════════════════════════════════════════
+   INIT
+══════════════════════════════════════════════════════ */
+(function init() {
+  populateStations();
+  populateYears();
+  renderAll();
+  onSelectChange();
+  loadApiKey();
+  // Allow Enter key to save API key
+  document.getElementById('apiKeyInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') saveApiKey();
+  });
+})();
+</script>
+</body>
+</html>
